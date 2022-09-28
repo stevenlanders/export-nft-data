@@ -1,0 +1,4 @@
+.idea
+*.json
+seed-names.csv
+export-nft-data
