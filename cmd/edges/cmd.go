@@ -7,7 +7,6 @@ import (
 	"export-nft-data/sales"
 	"export-nft-data/utils"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"os"
 )
 
@@ -63,9 +62,6 @@ func Run(ctx context.Context, cfg Config) error {
 		IgnoreTokens: tokenIgnoreList,
 	}, func(o *sales.CollectionOrder) error {
 
-		log.WithFields(log.Fields{
-			"tx": o.TxHash.Hex(),
-		}).Info("tx")
 		// if not buyer we care about, move on
 		if _, ok := buyerCollections[o.Buyer.Hex()]; !ok {
 			return nil
