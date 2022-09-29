@@ -58,14 +58,17 @@ func Edges(ctx context.Context, cs []*domain.Collection, cfg Config) error {
 		cs := buyerCollections[o.Buyer.Hex()]
 
 		for _, c := range cs {
-			c.Edges = append(c.Edges, &domain.CollectionEdge{
-				TxHash:         o.TxHash.Hex(),
-				BlockNumber:    o.Block,
-				FromCollection: &c.Address,
-				ToCollection:   &o.Collection,
-				Buyer:          &o.Buyer,
-				Price:          o.Price,
-			})
+			// if buyer's source collection happened before this purchase, add it as edge.
+			if c.OwnerBlock.Cmp(o.Block) == -1 {
+				c.Edges = append(c.Edges, &domain.CollectionEdge{
+					TxHash:         o.TxHash.Hex(),
+					BlockNumber:    o.Block,
+					FromCollection: &c.Address,
+					ToCollection:   &o.Collection,
+					Buyer:          &o.Buyer,
+					Price:          o.Price,
+				})
+			}
 		}
 		return nil
 	})
