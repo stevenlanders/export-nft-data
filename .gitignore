@@ -2,3 +2,4 @@
 *.json
 seed-names.csv
 export-nft-data
+*.tar.gz
