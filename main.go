@@ -81,12 +81,12 @@ func main() {
 						Value: os.Getenv("MAINNET_JSON_RPC"),
 					},
 					&cli.Uint64Flag{
-						Name:     "start-block",
-						Required: true,
+						Name:  "start-block",
+						Value: 14946474,
 					},
 					&cli.IntFlag{
 						Name:  "num-blocks",
-						Value: 30,
+						Value: 1000000,
 					},
 				},
 				ArgsUsage: "<buyer-and-collections-json>",

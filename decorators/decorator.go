@@ -66,6 +66,7 @@ func RunDecorators(ctx context.Context, c []*domain.Collection, cfg Config) erro
 		logger.Debug("start")
 		for _, decorator := range pipeline {
 			if err := decorator(ctx, processing, cfg); err != nil {
+				logger.WithError(err).Error("decorator error")
 				return err
 			}
 		}

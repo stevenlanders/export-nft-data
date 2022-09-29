@@ -10,6 +10,9 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
+	log "github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
+	"math"
 	"math/big"
 	"strings"
 )
@@ -52,12 +55,14 @@ func toMap(l []string) map[string]bool {
 	return res
 }
 
+var ErrNotEther = errors.New("not ether")
+
 func calculatePrice(items []seaport.ReceivedItem) (*big.Int, error) {
 	price := big.NewInt(0)
 	for _, si := range items {
 		// only consider ether payments
 		if si.Token.Hex() != ether {
-			return nil, errors.New("not ether")
+			return nil, ErrNotEther
 		}
 		price = price.Add(price, si.Amount)
 	}
@@ -70,7 +75,15 @@ func (s *stream) ForEachOwner(ctx context.Context, of *OwnerFilter, handler func
 		return err
 	}
 
-	return utils.WithPages(of.StartBlock, of.EndBlock, 2000, func(start, end uint64) error {
+	latest, err := s.e.BlockByNumber(ctx, nil)
+	if err != nil {
+		log.WithError(err).Error("error with BlockByNumber")
+		return err
+	}
+
+	endBlock := uint64(math.Min(float64(latest.NumberU64()), float64(of.EndBlock)))
+
+	return utils.WithPages(of.StartBlock, endBlock, 2000, func(start, end uint64) error {
 
 		iterator, err := ef.FilterTransfer(&bind.FilterOpts{
 			Start:   start,
@@ -93,55 +106,121 @@ func (s *stream) ForEachOwner(ctx context.Context, of *OwnerFilter, handler func
 	})
 }
 
-func (s *stream) ForEachCollectionOrder(ctx context.Context, of *OrderFilter, handler func(o *CollectionOrder) error) error {
-	return utils.WithPages(of.StartBlock, of.EndBlock, 2000, func(start, end uint64) error {
-		iterator, err := s.f.FilterOrderFulfilled(&bind.FilterOpts{
-			Start:   start,
-			End:     &end,
-			Context: ctx,
-		}, nil, nil)
+type blockRange struct {
+	start uint64
+	end   uint64
+}
 
+func (s *stream) ForEachCollectionOrder(ctx context.Context, of *OrderFilter, handler func(o *CollectionOrder) error) error {
+	tokenIgnoreList := toMap(of.IgnoreTokens)
+
+	logger := log.WithFields(log.Fields{
+		"method": "ForEachCollectionOrder",
+	})
+	pageCh := make(chan blockRange)
+	grp, ctx := errgroup.WithContext(ctx)
+
+	for i := 0; i < 10; i++ {
+		grp.Go(func() error {
+			f, err := seaport.NewSeaportFilterer(common.HexToAddress(defaultAddress), s.e)
+			if err != nil {
+				logger.WithError(err).Error("error creating filterer")
+				return err
+			}
+			for p := range pageCh {
+				if ctx.Err() != nil {
+					return ctx.Err()
+				}
+				logger := logger.WithFields(log.Fields{
+					"start": p.start,
+					"end":   p.end,
+				})
+
+				logger.Debug("page")
+
+				iterator, err := f.FilterOrderFulfilled(&bind.FilterOpts{
+					Start:   p.start,
+					End:     &p.end,
+					Context: ctx,
+				}, nil, nil)
+				if err != nil {
+					logger.WithError(err).Error("FilterOrderFulfilled error")
+					return err
+				}
+
+				for iterator.Next() {
+
+					if ctx.Err() != nil {
+						return ctx.Err()
+					}
+					o := iterator.Event
+
+					// skip complicated orders (price isn't clear per item when bundled)
+					if len(o.Offer) != 1 {
+						continue
+					}
+
+					var token common.Address
+
+					if _, ok := tokenIgnoreList[strings.ToLower(o.Offer[0].Token.Hex())]; ok {
+						continue
+					}
+					token = o.Offer[0].Token
+
+					price, err := calculatePrice(o.Consideration)
+					if err == ErrNotEther {
+						continue
+					}
+					if err != nil {
+						logger.WithError(err).Error("error calculating price")
+						return err
+					}
+
+					if err := handler(&CollectionOrder{
+						Buyer:      o.Recipient,
+						Seller:     o.Offerer,
+						Price:      price,
+						Collection: token,
+						TxHash:     o.Raw.TxHash,
+					}); err != nil {
+						logger.WithError(err).Error("handler error")
+						return err
+					}
+				}
+			}
+			return nil
+		})
+	}
+
+	grp.Go(func() error {
+		defer close(pageCh)
+
+		latest, err := s.e.BlockByNumber(ctx, nil)
 		if err != nil {
+			log.WithError(err).Error("error with BlockByNumber")
 			return err
 		}
 
-		tokenIgnoreList := toMap(of.IgnoreTokens)
-
-		for iterator.Next() {
-			if ctx.Err() != nil {
+		endBlock := uint64(math.Min(float64(latest.NumberU64()), float64(of.EndBlock)))
+		return utils.WithPages(of.StartBlock, endBlock, 2000, func(start, end uint64) error {
+			select {
+			case <-ctx.Done():
+				logger.WithError(ctx.Err()).Error("returning from WithPages")
 				return ctx.Err()
-			}
-			o := iterator.Event
-
-			// skip complicated orders (price isn't clear per item when bundled)
-			if len(o.Offer) != 1 {
-				return nil
-			}
-			var token common.Address
-			for _, si := range o.Offer {
-				if _, ok := tokenIgnoreList[strings.ToLower(si.Token.Hex())]; ok {
-					return nil
+			default:
+				pageCh <- blockRange{
+					start: start,
+					end:   end,
 				}
-				token = si.Token
 			}
-
-			price, err := calculatePrice(o.Consideration)
-			if err != nil {
-				continue
-			}
-
-			if err := handler(&CollectionOrder{
-				Buyer:      o.Recipient,
-				Seller:     o.Offerer,
-				Price:      price,
-				Collection: token,
-				TxHash:     o.Raw.TxHash,
-			}); err != nil {
-				return err
-			}
-		}
-		return nil
+			return nil
+		})
 	})
+	if err := grp.Wait(); err != nil {
+		logger.WithError(err).Error("errgroup error")
+		return err
+	}
+	return nil
 }
 
 type Config struct {
