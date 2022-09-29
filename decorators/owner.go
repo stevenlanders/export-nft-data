@@ -16,7 +16,8 @@ const mainnetRate = 13
 
 func Owners(ctx context.Context, cs []*domain.Collection, cfg Config) error {
 	logger := log.WithFields(log.Fields{
-		"step": "Owners",
+		"step":  "Owners",
+		"count": len(cs),
 	})
 	logger.Debug("start")
 

@@ -113,7 +113,7 @@ func main() {
 					},
 					&cli.IntFlag{
 						Name:  "num-blocks",
-						Value: 1000000,
+						Value: 500000,
 					},
 					&cli.IntFlag{
 						Name:  "owner-days",
@@ -122,6 +122,10 @@ func main() {
 					&cli.IntFlag{
 						Name:  "iterations",
 						Value: 1,
+					},
+					&cli.StringFlag{
+						Name:  "output-file",
+						Value: "results.json",
 					},
 					&cli.StringFlag{
 						Name:  "mainnet-json-rpc",
@@ -144,6 +148,7 @@ func main() {
 					}
 					return discover.Run(c.Context, discover.Config{
 						File:           file,
+						OutputFile:     c.String("output-file"),
 						JsonRpcUrl:     c.String("mainnet-json-rpc"),
 						CenterDevKey:   c.String("centerdev-key"),
 						EtherscanKey:   c.String("etherscan-key"),

@@ -12,7 +12,8 @@ import (
 // DeployInfo marks the deployment block of each address
 func DeployInfo(ctx context.Context, cs []*domain.Collection, cfg Config) error {
 	logger := log.WithFields(log.Fields{
-		"step": "DeployInfo",
+		"step":  "DeployInfo",
+		"count": len(cs),
 	})
 
 	logger.Debug("start")

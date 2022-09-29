@@ -88,10 +88,15 @@ func RunDecorators(ctx context.Context, c []*domain.Collection, cfg Config) erro
 	}
 	// at end, fill in the data for the new nodes and stop
 	unprocessed := filterUnprocessed(c)
+	logger := log.WithFields(log.Fields{
+		"unprocessed": len(unprocessed),
+	})
 	if err := TokenInfo(ctx, unprocessed, cfg); err != nil {
+		logger.WithError(err).Error("error getting TokenInfo at end of process")
 		return err
 	}
 	if err := DeployInfo(ctx, unprocessed, cfg); err != nil {
+		logger.WithError(err).Error("error getting DeployInfo at end of process")
 		return err
 	}
 	return nil

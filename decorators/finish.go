@@ -8,7 +8,8 @@ import (
 
 func MarkProcessed(ctx context.Context, cs []*domain.Collection, cfg Config) error {
 	logger := log.WithFields(log.Fields{
-		"step": "MarkProcessed",
+		"step":  "MarkProcessed",
+		"count": len(cs),
 	})
 	logger.Debug("start")
 	for _, c := range cs {

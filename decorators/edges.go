@@ -13,7 +13,8 @@ var tokenIgnoreList = []string{
 
 func Edges(ctx context.Context, cs []*domain.Collection, cfg Config) error {
 	logger := log.WithFields(log.Fields{
-		"step": "Edges",
+		"step":  "Edges",
+		"count": len(cs),
 	})
 
 	logger.Debug("start")

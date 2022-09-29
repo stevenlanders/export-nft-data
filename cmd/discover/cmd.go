@@ -10,12 +10,13 @@ import (
 	"export-nft-data/domain"
 	"export-nft-data/events"
 	"export-nft-data/utils"
-	"fmt"
+	log "github.com/sirupsen/logrus"
 	"math/big"
 	"os"
 )
 
 type Config struct {
+	OutputFile     string
 	File           string
 	JsonRpcUrl     string
 	CenterDevKey   string
@@ -49,6 +50,11 @@ func Run(ctx context.Context, cfg Config) error {
 
 	e := etherscan.NewEtherscanClient(cfg.EtherscanKey)
 
+	outputFile, err := os.Create(cfg.OutputFile)
+	if err != nil {
+		return err
+	}
+
 	err = decorators.RunDecorators(ctx, collections, decorators.Config{
 		StartBlock: big.NewInt(int64(cfg.BlockStart)),
 		NumBlocks:  big.NewInt(int64(cfg.NumberOfBlocks)),
@@ -61,9 +67,10 @@ func Run(ctx context.Context, cfg Config) error {
 	})
 
 	if err != nil {
+		log.WithError(err).Error("error from decorators.RunDecorators")
 		return nil
 	}
 
-	fmt.Println(utils.ToJson(collections))
-	return nil
+	_, err = outputFile.WriteString(utils.ToJson(collections))
+	return err
 }
