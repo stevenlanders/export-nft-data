@@ -4,6 +4,7 @@ import (
 	"context"
 	"export-nft-data/domain"
 	"export-nft-data/events"
+	log "github.com/sirupsen/logrus"
 )
 
 var tokenIgnoreList = []string{
@@ -11,6 +12,12 @@ var tokenIgnoreList = []string{
 }
 
 func Edges(ctx context.Context, cs []*domain.Collection, cfg Config) error {
+	logger := log.WithFields(log.Fields{
+		"step": "Edges",
+	})
+
+	logger.Debug("start")
+
 	var edges []*domain.CollectionEdge
 
 	// build lookup maps
@@ -32,7 +39,7 @@ func Edges(ctx context.Context, cs []*domain.Collection, cfg Config) error {
 	err := cfg.Stream.ForEachCollectionOrder(ctx, &events.OrderFilter{
 		BlockFilter: events.BlockFilter{
 			StartBlock: cfg.StartBlock.Uint64(),
-			EndBlock:   &eb,
+			EndBlock:   eb,
 		},
 		IgnoreTokens: tokenIgnoreList,
 	}, func(o *events.CollectionOrder) error {
@@ -60,12 +67,14 @@ func Edges(ctx context.Context, cs []*domain.Collection, cfg Config) error {
 		return nil
 	})
 	if err != nil {
+		logger.WithError(err).Error("error getting edges")
 		return err
 	}
 
 	if edges == nil {
 		edges = []*domain.CollectionEdge{}
 	}
+	logger.Debug("complete")
 
 	return nil
 }

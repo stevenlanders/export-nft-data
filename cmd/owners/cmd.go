@@ -68,7 +68,7 @@ func Run(ctx context.Context, cfg Config) error {
 		err := s.ForEachOwner(ctx, &events.OwnerFilter{
 			BlockFilter: events.BlockFilter{
 				StartBlock: c.DeployBlock.Uint64(),
-				EndBlock:   &tb,
+				EndBlock:   tb,
 			},
 			Token: c.Address,
 		}, func(owner common.Address) error {

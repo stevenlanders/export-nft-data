@@ -3,10 +3,12 @@ package edges
 import (
 	"context"
 	"encoding/json"
+	"export-nft-data/decorators"
 	"export-nft-data/domain"
 	"export-nft-data/events"
 	"export-nft-data/utils"
 	"fmt"
+	"math/big"
 	"os"
 )
 
@@ -36,60 +38,24 @@ func Run(ctx context.Context, cfg Config) error {
 		return err
 	}
 
-	var edges []*domain.CollectionEdge
-
-	// build lookup maps
-	knownCollections := make(map[string]bool)
-	buyerCollections := make(map[string][]*domain.Collection)
-	for _, c := range collections {
-		knownCollections[c.Address.Hex()] = true
-		for _, o := range c.Owners {
-			addr := o.Hex()
-			if _, ok := buyerCollections[addr]; !ok {
-				buyerCollections[addr] = []*domain.Collection{c}
-			} else {
-				buyerCollections[addr] = append(buyerCollections[addr], c)
-			}
-		}
-	}
-
-	endBlock := cfg.BlockStart + uint64(cfg.NumberOfBlocks)
-	err = s.ForEachCollectionOrder(ctx, &events.OrderFilter{
-		BlockFilter: events.BlockFilter{
-			StartBlock: cfg.BlockStart,
-			EndBlock:   &endBlock,
-		},
-		IgnoreTokens: tokenIgnoreList,
-	}, func(o *events.CollectionOrder) error {
-
-		// if not buyer we care about, move on
-		if _, ok := buyerCollections[o.Buyer.Hex()]; !ok {
-			return nil
-		}
-		// if already known, move on
-		if _, ok := knownCollections[o.Collection.Hex()]; ok {
-			return nil
-		}
-
-		cs := buyerCollections[o.Buyer.Hex()]
-		for _, c := range cs {
-			edges = append(edges, &domain.CollectionEdge{
-				FromCollection: c.Address,
-				ToCollection:   o.Collection,
-				Buyer:          o.Buyer,
-				Price:          o.Price,
-			})
-		}
-		return nil
+	err = decorators.Edges(ctx, collections, decorators.Config{
+		Stream:     s,
+		StartBlock: big.NewInt(int64(cfg.BlockStart)),
+		NumBlocks:  big.NewInt(int64(cfg.NumberOfBlocks)),
 	})
 	if err != nil {
 		return err
 	}
 
-	if edges == nil {
-		edges = []*domain.CollectionEdge{}
+	var edges []*domain.CollectionEdge
+
+	for _, c := range collections {
+		for _, e := range c.Edges {
+			edges = append(edges, e)
+		}
 	}
 
 	fmt.Println(utils.ToJson(edges))
+
 	return nil
 }

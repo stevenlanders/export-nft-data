@@ -6,6 +6,7 @@ import (
 	"export-nft-data/client/eth"
 	"export-nft-data/contracts/erc721"
 	"export-nft-data/contracts/seaport"
+	"export-nft-data/utils"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -20,7 +21,7 @@ const (
 
 type BlockFilter struct {
 	StartBlock uint64
-	EndBlock   *uint64
+	EndBlock   uint64
 }
 
 type OrderFilter struct {
@@ -68,74 +69,79 @@ func (s *stream) ForEachOwner(ctx context.Context, of *OwnerFilter, handler func
 	if err != nil {
 		return err
 	}
-	iterator, err := ef.FilterTransfer(&bind.FilterOpts{
-		Start:   of.StartBlock,
-		End:     of.EndBlock,
-		Context: ctx,
-	}, nil, nil, nil)
-	if err != nil {
-		return err
-	}
 
-	for iterator.Next() {
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-		if err := handler(iterator.Event.To); err != nil {
+	return utils.WithPages(of.StartBlock, of.EndBlock, 2000, func(start, end uint64) error {
+
+		iterator, err := ef.FilterTransfer(&bind.FilterOpts{
+			Start:   start,
+			End:     &end,
+			Context: ctx,
+		}, nil, nil, nil)
+		if err != nil {
 			return err
 		}
-	}
-	return nil
+
+		for iterator.Next() {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			if err := handler(iterator.Event.To); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func (s *stream) ForEachCollectionOrder(ctx context.Context, of *OrderFilter, handler func(o *CollectionOrder) error) error {
-	iterator, err := s.f.FilterOrderFulfilled(&bind.FilterOpts{
-		Start:   of.StartBlock,
-		End:     of.EndBlock,
-		Context: ctx,
-	}, nil, nil)
+	return utils.WithPages(of.StartBlock, of.EndBlock, 2000, func(start, end uint64) error {
+		iterator, err := s.f.FilterOrderFulfilled(&bind.FilterOpts{
+			Start:   start,
+			End:     &end,
+			Context: ctx,
+		}, nil, nil)
 
-	if err != nil {
-		return err
-	}
-
-	tokenIgnoreList := toMap(of.IgnoreTokens)
-
-	for iterator.Next() {
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-		o := iterator.Event
-
-		// skip complicated orders (price isn't clear per item when bundled)
-		if len(o.Offer) != 1 {
-			return nil
-		}
-		var token common.Address
-		for _, si := range o.Offer {
-			if _, ok := tokenIgnoreList[strings.ToLower(si.Token.Hex())]; ok {
-				return nil
-			}
-			token = si.Token
-		}
-
-		price, err := calculatePrice(o.Consideration)
 		if err != nil {
-			continue
-		}
-
-		if err := handler(&CollectionOrder{
-			Buyer:      o.Recipient,
-			Seller:     o.Offerer,
-			Price:      price,
-			Collection: token,
-			TxHash:     o.Raw.TxHash,
-		}); err != nil {
 			return err
 		}
-	}
 
-	return nil
+		tokenIgnoreList := toMap(of.IgnoreTokens)
+
+		for iterator.Next() {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			o := iterator.Event
+
+			// skip complicated orders (price isn't clear per item when bundled)
+			if len(o.Offer) != 1 {
+				return nil
+			}
+			var token common.Address
+			for _, si := range o.Offer {
+				if _, ok := tokenIgnoreList[strings.ToLower(si.Token.Hex())]; ok {
+					return nil
+				}
+				token = si.Token
+			}
+
+			price, err := calculatePrice(o.Consideration)
+			if err != nil {
+				continue
+			}
+
+			if err := handler(&CollectionOrder{
+				Buyer:      o.Recipient,
+				Seller:     o.Offerer,
+				Price:      price,
+				Collection: token,
+				TxHash:     o.Raw.TxHash,
+			}); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 type Config struct {

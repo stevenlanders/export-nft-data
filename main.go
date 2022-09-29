@@ -108,16 +108,16 @@ func main() {
 				Usage: "start with a small set of nodes and discover a graph",
 				Flags: []cli.Flag{
 					&cli.Uint64Flag{
-						Name:     "start-block",
-						Required: true,
+						Name:  "start-block",
+						Value: 14946474,
 					},
 					&cli.IntFlag{
 						Name:  "num-blocks",
-						Value: 100000,
+						Value: 1000000,
 					},
 					&cli.IntFlag{
 						Name:  "owner-days",
-						Value: 180,
+						Value: 30,
 					},
 					&cli.IntFlag{
 						Name:  "iterations",
@@ -157,8 +157,9 @@ func main() {
 		},
 	}
 
+	log.SetLevel(log.DebugLevel)
 	err := app.Run(os.Args)
 	if err != nil {
-		log.Fatal(err)
+		log.WithError(err).Fatal(err)
 	}
 }

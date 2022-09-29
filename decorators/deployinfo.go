@@ -2,6 +2,7 @@ package decorators
 
 import (
 	"context"
+	log "github.com/sirupsen/logrus"
 	"strings"
 
 	"export-nft-data/domain"
@@ -10,6 +11,11 @@ import (
 
 // DeployInfo marks the deployment block of each address
 func DeployInfo(ctx context.Context, cs []*domain.Collection, cfg Config) error {
+	logger := log.WithFields(log.Fields{
+		"step": "DeployInfo",
+	})
+
+	logger.Debug("start")
 	var addresses []string
 	for _, c := range cs {
 		addresses = append(addresses, c.Address.Hex())
@@ -30,5 +36,6 @@ func DeployInfo(ctx context.Context, cs []*domain.Collection, cfg Config) error 
 		}
 	}
 
+	logger.Debug("complete")
 	return nil
 }

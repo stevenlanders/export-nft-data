@@ -3,11 +3,6 @@ package discover
 import (
 	"context"
 	"encoding/json"
-	"fmt"
-	"math/big"
-	"os"
-	"time"
-
 	"export-nft-data/client/centerdev"
 	"export-nft-data/client/eth"
 	"export-nft-data/client/etherscan"
@@ -15,6 +10,9 @@ import (
 	"export-nft-data/domain"
 	"export-nft-data/events"
 	"export-nft-data/utils"
+	"fmt"
+	"math/big"
+	"os"
 )
 
 type Config struct {
@@ -51,18 +49,15 @@ func Run(ctx context.Context, cfg Config) error {
 
 	e := etherscan.NewEtherscanClient(cfg.EtherscanKey)
 
-	ticker := time.NewTicker(1 * time.Second)
-
 	err = decorators.RunDecorators(ctx, collections, decorators.Config{
-		StartBlock:  big.NewInt(int64(cfg.BlockStart)),
-		NumBlocks:   big.NewInt(int64(cfg.NumberOfBlocks)),
-		Days:        cfg.OwnerDays,
-		RateLimiter: ticker.C,
-		Stream:      s,
-		Eth:         ec,
-		EtherScan:   e,
-		CenterDev:   cd,
-		Iterations:  cfg.Iterations,
+		StartBlock: big.NewInt(int64(cfg.BlockStart)),
+		NumBlocks:  big.NewInt(int64(cfg.NumberOfBlocks)),
+		Days:       cfg.OwnerDays,
+		Stream:     s,
+		Eth:        ec,
+		EtherScan:  e,
+		CenterDev:  cd,
+		Iterations: cfg.Iterations,
 	})
 
 	if err != nil {
