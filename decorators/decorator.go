@@ -75,9 +75,12 @@ func RunDecorators(ctx context.Context, c []*domain.Collection, cfg Config) erro
 		addresses := addressMap(c)
 		for _, collection := range processing {
 			for _, e := range collection.Edges {
+				if e == nil || e.ToCollection == nil {
+					continue
+				}
 				if _, ok := addresses[strings.ToLower(e.ToCollection.String())]; !ok {
 					c = append(c, &domain.Collection{
-						Address: e.ToCollection,
+						Address: *e.ToCollection,
 					})
 					// avoid duplicates
 					addresses[strings.ToLower(e.ToCollection.String())] = true

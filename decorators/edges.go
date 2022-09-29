@@ -59,9 +59,9 @@ func Edges(ctx context.Context, cs []*domain.Collection, cfg Config) error {
 
 		for _, c := range cs {
 			c.Edges = append(c.Edges, &domain.CollectionEdge{
-				FromCollection: c.Address,
-				ToCollection:   o.Collection,
-				Buyer:          o.Buyer,
+				FromCollection: &c.Address,
+				ToCollection:   &o.Collection,
+				Buyer:          &o.Buyer,
 				Price:          o.Price,
 			})
 		}

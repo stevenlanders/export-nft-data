@@ -16,8 +16,8 @@ type Collection struct {
 }
 
 type CollectionEdge struct {
-	FromCollection common.Address `json:"fromCollection"`
-	ToCollection   common.Address `json:"toCollection"`
-	Buyer          common.Address `json:"buyer"`
-	Price          *big.Int       `json:"price"`
+	FromCollection *common.Address `json:"fromCollection"`
+	ToCollection   *common.Address `json:"toCollection"`
+	Buyer          *common.Address `json:"buyer"`
+	Price          *big.Int        `json:"price"`
 }
