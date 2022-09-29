@@ -24,6 +24,9 @@ func (c *client) GetContractCreations(ctx context.Context, addresses []string) (
 	var result []ContractCreation
 	chunks := u.ChunkBy[string](addresses, 5)
 	for _, chunk := range chunks {
+		if len(chunk) == 0 {
+			continue
+		}
 		addressList := strings.Join(chunk, ",")
 		url := fmt.Sprintf(apiUrl, addressList, c.key)
 		var page ContractCreationResponse

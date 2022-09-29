@@ -1,47 +1,22 @@
-package edges
+package decorators
 
 import (
 	"context"
-	"encoding/json"
 	"export-nft-data/domain"
 	"export-nft-data/events"
-	"export-nft-data/utils"
-	"fmt"
-	"os"
 )
 
 var tokenIgnoreList = []string{
-	"0x57f1887a8bf19b14fc0df6fd9b2acc9af147ea85", //END
+	"0x57f1887a8bf19b14fc0df6fd9b2acc9af147ea85", // ignore ENS
 }
 
-type Config struct {
-	File           string
-	JsonRpcUrl     string
-	BlockStart     uint64
-	NumberOfBlocks int
-}
-
-func Run(ctx context.Context, cfg Config) error {
-	b, err := os.ReadFile(cfg.File)
-	if err != nil {
-		return err
-	}
-	var collections []*domain.Collection
-	if err := json.Unmarshal(b, &collections); err != nil {
-		return err
-	}
-
-	s, err := events.NewStream(events.Config{JsonRpcUrl: cfg.JsonRpcUrl})
-	if err != nil {
-		return err
-	}
-
+func Edges(ctx context.Context, cs []*domain.Collection, cfg Config) error {
 	var edges []*domain.CollectionEdge
 
 	// build lookup maps
 	knownCollections := make(map[string]bool)
 	buyerCollections := make(map[string][]*domain.Collection)
-	for _, c := range collections {
+	for _, c := range cs {
 		knownCollections[c.Address.Hex()] = true
 		for _, o := range c.Owners {
 			addr := o.Hex()
@@ -53,11 +28,11 @@ func Run(ctx context.Context, cfg Config) error {
 		}
 	}
 
-	endBlock := cfg.BlockStart + uint64(cfg.NumberOfBlocks)
-	err = s.ForEachCollectionOrder(ctx, &events.OrderFilter{
+	eb := cfg.StartBlock.Uint64() + cfg.NumBlocks.Uint64()
+	err := cfg.Stream.ForEachCollectionOrder(ctx, &events.OrderFilter{
 		BlockFilter: events.BlockFilter{
-			StartBlock: cfg.BlockStart,
-			EndBlock:   &endBlock,
+			StartBlock: cfg.StartBlock.Uint64(),
+			EndBlock:   &eb,
 		},
 		IgnoreTokens: tokenIgnoreList,
 	}, func(o *events.CollectionOrder) error {
@@ -67,13 +42,15 @@ func Run(ctx context.Context, cfg Config) error {
 			return nil
 		}
 		// if already known, move on
-		if _, ok := knownCollections[o.Collection.Hex()]; ok {
-			return nil
-		}
+		// commenting out to allow revisits
+		//if _, ok := knownCollections[o.Collection.Hex()]; ok {
+		//	return nil
+		//}
 
 		cs := buyerCollections[o.Buyer.Hex()]
+
 		for _, c := range cs {
-			edges = append(edges, &domain.CollectionEdge{
+			c.Edges = append(c.Edges, &domain.CollectionEdge{
 				FromCollection: c.Address,
 				ToCollection:   o.Collection,
 				Buyer:          o.Buyer,
@@ -90,6 +67,5 @@ func Run(ctx context.Context, cfg Config) error {
 		edges = []*domain.CollectionEdge{}
 	}
 
-	fmt.Println(utils.ToJson(edges))
 	return nil
 }

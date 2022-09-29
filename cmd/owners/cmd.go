@@ -3,15 +3,16 @@ package owners
 import (
 	"context"
 	"encoding/json"
+	"export-nft-data/client/eth"
+	"export-nft-data/events"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common"
 	"math"
 	"math/big"
 	"os"
 
 	log "github.com/sirupsen/logrus"
 
-	"export-nft-data/client/alchemy"
-	"export-nft-data/client/eth"
 	"export-nft-data/domain"
 	"export-nft-data/utils"
 )
@@ -21,7 +22,7 @@ const mainnetRate = 13
 
 type Config struct {
 	File       string
-	AlchemyKey string
+	JsonRpcUrl string
 	Days       int
 }
 
@@ -35,9 +36,8 @@ func Run(ctx context.Context, cfg Config) error {
 		return err
 	}
 
-	et, err := eth.NewEthClient(fmt.Sprintf("https://eth-mainnet.alchemyapi.io/v2/%s", cfg.AlchemyKey))
+	et, err := eth.NewEthClient(cfg.JsonRpcUrl)
 	if err != nil {
-		log.WithError(err).Error("error creating eth client")
 		return err
 	}
 
@@ -47,7 +47,13 @@ func Run(ctx context.Context, cfg Config) error {
 		return err
 	}
 
-	a := alchemy.NewNFTClient(cfg.AlchemyKey)
+	s, err := events.NewStream(events.Config{
+		JsonRpcUrl: cfg.JsonRpcUrl,
+	})
+	if err != nil {
+		return err
+	}
+
 	seconds := cfg.Days * 24 * 60 * 60
 	blockOffset := big.NewInt(int64(math.Floor(float64(seconds / mainnetRate))))
 
@@ -57,7 +63,18 @@ func Run(ctx context.Context, cfg Config) error {
 		if targetBlock.Cmp(latest.Number()) == 1 {
 			targetBlock = latest.Number()
 		}
-		owners, err := a.GetOwners(ctx, c.Address, targetBlock)
+		tb := targetBlock.Uint64()
+		var owners []common.Address
+		err := s.ForEachOwner(ctx, &events.OwnerFilter{
+			BlockFilter: events.BlockFilter{
+				StartBlock: c.DeployBlock.Uint64(),
+				EndBlock:   &tb,
+			},
+			Token: c.Address,
+		}, func(owner common.Address) error {
+			owners = append(owners, owner)
+			return nil
+		})
 		if err != nil {
 			return err
 		}

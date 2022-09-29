@@ -1,13 +1,14 @@
-package sales
+package events
 
 import (
 	"context"
 	"errors"
 	"export-nft-data/client/eth"
+	"export-nft-data/contracts/erc721"
 	"export-nft-data/contracts/seaport"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	log "github.com/sirupsen/logrus"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"math/big"
 	"strings"
 )
@@ -27,12 +28,19 @@ type OrderFilter struct {
 	IgnoreTokens []string
 }
 
+type OwnerFilter struct {
+	BlockFilter
+	Token common.Address
+}
+
 type Stream interface {
 	ForEachCollectionOrder(ctx context.Context, of *OrderFilter, handler func(o *CollectionOrder) error) error
+	ForEachOwner(ctx context.Context, of *OwnerFilter, handler func(owner common.Address) error) error
 }
 
 type stream struct {
 	f *seaport.SeaportFilterer
+	e *ethclient.Client
 }
 
 func toMap(l []string) map[string]bool {
@@ -55,11 +63,32 @@ func calculatePrice(items []seaport.ReceivedItem) (*big.Int, error) {
 	return price, nil
 }
 
-func (s *stream) ForEachCollectionOrder(ctx context.Context, of *OrderFilter, handler func(o *CollectionOrder) error) error {
-	log.WithFields(log.Fields{
-		"filter": of,
-	}).Info("ForEachCollectionOrder")
+func (s *stream) ForEachOwner(ctx context.Context, of *OwnerFilter, handler func(owner common.Address) error) error {
+	ef, err := erc721.NewERC721Filterer(of.Token, s.e)
+	if err != nil {
+		return err
+	}
+	iterator, err := ef.FilterTransfer(&bind.FilterOpts{
+		Start:   of.StartBlock,
+		End:     of.EndBlock,
+		Context: ctx,
+	}, nil, nil, nil)
+	if err != nil {
+		return err
+	}
 
+	for iterator.Next() {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if err := handler(iterator.Event.To); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *stream) ForEachCollectionOrder(ctx context.Context, of *OrderFilter, handler func(o *CollectionOrder) error) error {
 	iterator, err := s.f.FilterOrderFulfilled(&bind.FilterOpts{
 		Start:   of.StartBlock,
 		End:     of.EndBlock,
@@ -131,5 +160,6 @@ func NewStream(cfg Config) (Stream, error) {
 
 	return &stream{
 		f: f,
+		e: c,
 	}, nil
 }

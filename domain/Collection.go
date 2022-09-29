@@ -6,11 +6,13 @@ import (
 )
 
 type Collection struct {
-	Name        string           `json:"name"`
-	Address     common.Address   `json:"address"`
-	DeployBlock *big.Int         `json:"deployBlock,omitempty"`
-	OwnerBlock  *big.Int         `json:"ownerBlock,omitempty"`
-	Owners      []common.Address `json:"owners,omitempty"`
+	Name        string            `json:"name"`
+	Address     common.Address    `json:"address"`
+	DeployBlock *big.Int          `json:"deployBlock,omitempty"`
+	OwnerBlock  *big.Int          `json:"ownerBlock,omitempty"`
+	Owners      []common.Address  `json:"owners,omitempty"`
+	Edges       []*CollectionEdge `json:"edges"`
+	Processed   bool              `json:"processed"`
 }
 
 type CollectionEdge struct {

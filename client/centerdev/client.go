@@ -8,14 +8,16 @@ import (
 )
 
 const (
-	pageLimit      = 100
-	minRelevance   = 10
-	apiHost        = "https://api.center.dev"
-	apiCollections = "/v1/%s/search?query=%s&type=Collection"
+	pageLimit               = 100
+	minRelevance            = 10
+	apiHost                 = "https://api.center.dev"
+	apiCollections          = "/v1/%s/search?query=%s&type=Collection"
+	apiCollectionsByAddress = "/v1/%s/search?address=%s&type=Collection"
 )
 
 type Client interface {
 	GetCollections(ctx context.Context, network Network, name string) ([]*Collection, error)
+	GetCollection(ctx context.Context, network Network, address string) (*Collection, error)
 }
 
 type client struct {
@@ -26,6 +28,17 @@ func NewClient(key string) Client {
 	return &client{Headers: map[string]string{
 		"X-API-Key": key,
 	}}
+}
+
+func (c *client) GetCollection(ctx context.Context, network Network, address string) (*Collection, error) {
+	cs, err := getListAPI[Collection](ctx, fmt.Sprintf(apiCollectionsByAddress, network, address), c.Headers)
+	if err != nil {
+		return nil, err
+	}
+	if len(cs) == 0 {
+		return nil, nil
+	}
+	return cs[0], err
 }
 
 func (c *client) GetCollections(ctx context.Context, network Network, name string) ([]*Collection, error) {
