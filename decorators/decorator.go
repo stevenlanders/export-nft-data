@@ -98,9 +98,5 @@ func RunDecorators(ctx context.Context, c []*domain.Collection, cfg Config) erro
 		logger.WithError(err).Error("error getting TokenInfo at end of process")
 		return err
 	}
-	if err := DeployInfo(ctx, unprocessed, cfg); err != nil {
-		logger.WithError(err).Error("error getting DeployInfo at end of process")
-		return err
-	}
 	return nil
 }
