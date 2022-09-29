@@ -11,4 +11,5 @@ type CollectionOrder struct {
 	Price      *big.Int       `json:"price"`
 	Collection common.Address `json:"collection"`
 	TxHash     common.Hash    `json:"tx"`
+	Block      *big.Int       `json:"block"`
 }

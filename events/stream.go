@@ -182,6 +182,7 @@ func (s *stream) ForEachCollectionOrder(ctx context.Context, of *OrderFilter, ha
 						Price:      price,
 						Collection: token,
 						TxHash:     o.Raw.TxHash,
+						Block:      big.NewInt(int64(o.Raw.BlockNumber)),
 					}); err != nil {
 						logger.WithError(err).Error("handler error")
 						return err

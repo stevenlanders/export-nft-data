@@ -16,6 +16,8 @@ type Collection struct {
 }
 
 type CollectionEdge struct {
+	TxHash         string          `json:"txHash"`
+	BlockNumber    *big.Int        `json:"block"`
 	FromCollection *common.Address `json:"fromCollection"`
 	ToCollection   *common.Address `json:"toCollection"`
 	Buyer          *common.Address `json:"buyer"`

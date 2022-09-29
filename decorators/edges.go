@@ -59,6 +59,8 @@ func Edges(ctx context.Context, cs []*domain.Collection, cfg Config) error {
 
 		for _, c := range cs {
 			c.Edges = append(c.Edges, &domain.CollectionEdge{
+				TxHash:         o.TxHash.Hex(),
+				BlockNumber:    o.Block,
 				FromCollection: &c.Address,
 				ToCollection:   &o.Collection,
 				Buyer:          &o.Buyer,
