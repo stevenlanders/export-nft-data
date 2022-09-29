@@ -32,7 +32,7 @@ func Owners(ctx context.Context, cs []*domain.Collection, cfg Config) error {
 	grp, ctx := errgroup.WithContext(ctx)
 	ch := make(chan *domain.Collection)
 
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 10; i++ {
 		grp.Go(func() error {
 			for c := range ch {
 				targetBlock := big.NewInt(0)
